@@ -20,7 +20,6 @@ const (
 	serverPort = "8080"
 )
 
-// Config хранит настройки подключения к MinIO
 type Config struct {
 	Endpoint        string
 	AccessKeyID     string
@@ -28,7 +27,6 @@ type Config struct {
 	UseSSL          bool
 }
 
-// UploadResponse структура ответа API
 type UploadResponse struct {
 	Success   bool   `json:"success"`
 	Message   string `json:"message"`
@@ -42,7 +40,6 @@ var s3Client *minio.Client
 
 func main() {
 
-	// Загружаем конфиг (использует localhost по умолчанию)
 	config := loadConfig()
 
 	client, err := createClient(config)
@@ -53,14 +50,12 @@ func main() {
 
 	ctx := context.Background()
 
-	// Создаём бакет, если его нет
 	err = createBucket(ctx, client, bucketName, region)
 	if err != nil {
 		log.Fatalf("Ошибка создания бакета: %v", err)
 	}
 	fmt.Printf("Бакет '%s' успешно создан или уже существует\n", bucketName)
 
-	// HTTP маршруты
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/health", healthHandler)
 
@@ -69,13 +64,11 @@ func main() {
 	fmt.Printf("📤 Endpoint для загрузки файлов: http://localhost%s/upload\n", serverAddr)
 	fmt.Println("\nПоддерживаемые типы файлов: .txt, .png, .json")
 
-	// Запуск сервера
 	if err := http.ListenAndServe(serverAddr, nil); err != nil {
 		log.Fatalf("Ошибка запуска сервера: %v", err)
 	}
 }
 
-// Проверка здоровья сервиса
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -84,7 +77,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Обработчик загрузки файла
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
@@ -92,7 +84,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := r.ParseMultipartForm(32 << 20) // максимум 32MB
+	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, fmt.Sprintf("Ошибка парсинга формы: %v", err))
 		return
@@ -140,7 +132,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Загружен файл: %s (%s, %d bytes)\n", handler.Filename, contentType, fileSize)
 }
 
-// Проверка поддерживаемого типа файла
 func validateFileType(ext string) (string, error) {
 	allowedTypes := map[string]string{
 		".txt":  "text/plain",
@@ -156,7 +147,6 @@ func validateFileType(ext string) (string, error) {
 	return contentType, nil
 }
 
-// Универсальный ответ с ошибкой
 func respondWithError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -166,12 +156,11 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 	})
 }
 
-// Загрузка конфигурации
 func loadConfig() Config {
 
 	endpoint := os.Getenv("S3_ENDPOINT")
 	if endpoint == "" {
-		endpoint = "localhost:9000" // ← исправлено
+		endpoint = "localhost:9000"
 	}
 
 	accessKey := os.Getenv("S3_ACCESS_KEY")
@@ -194,7 +183,6 @@ func loadConfig() Config {
 	}
 }
 
-// Создание клиента MinIO
 func createClient(config Config) (*minio.Client, error) {
 	client, err := minio.New(config.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.AccessKeyID, config.SecretAccessKey, ""),
@@ -208,7 +196,6 @@ func createClient(config Config) (*minio.Client, error) {
 	return client, nil
 }
 
-// Создание бакета (если не существует)
 func createBucket(ctx context.Context, client *minio.Client, bucketName, region string) error {
 	exists, err := client.BucketExists(ctx, bucketName)
 	if err != nil {
