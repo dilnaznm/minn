@@ -60,8 +60,8 @@ func main() {
 	http.HandleFunc("/health", healthHandler)
 
 	serverAddr := ":" + serverPort
-	fmt.Printf("🚀 HTTP сервер запущен на порту %s\n", serverPort)
-	fmt.Printf("📤 Endpoint для загрузки файлов: http://localhost%s/upload\n", serverAddr)
+	fmt.Printf("HTTP сервер запущен на порту %s\n", serverPort)
+	fmt.Printf("Endpoint для загрузки файлов: http://localhost%s/upload\n", serverAddr)
 	fmt.Println("\nПоддерживаемые типы файлов: .txt, .png, .json")
 
 	if err := http.ListenAndServe(serverAddr, nil); err != nil {
