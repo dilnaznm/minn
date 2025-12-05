@@ -1,60 +1,174 @@
-# S3 Bucket Manager (MinIO/AWS)
+# S3 Upload API (MinIO/AWS)
 
-Go-программа для создания S3-бакета и загрузки файлов трех типов: TXT, PNG и JSON.
+HTTP API сервер на Go для загрузки файлов в S3-бакет (MinIO или AWS S3) через REST API. Поддерживает загрузку файлов трех типов: TXT, PNG и JSON.
 
 ## Возможности
 
-- ✅ Создание S3-бакета (MinIO или AWS S3)
-- ✅ Автоматическая генерация PNG файла (если отсутствует)
-- ✅ Загрузка файлов трех типов:
-  - TXT (текстовые файлы)
-  - PNG (изображения)
-  - JSON (структурированные данные)
+- ✅ HTTP REST API для загрузки файлов через Postman
+- ✅ Автоматическое создание S3-бакета при запуске
+- ✅ Валидация типов файлов (только .txt, .png, .json)
+- ✅ Прямая загрузка файлов в MinIO/AWS S3
+- ✅ Поддержка MinIO и AWS S3
+- ✅ Docker Compose для быстрого запуска
 
 ## Требования
 
-- Go 1.16 или выше
-- MinIO сервер (для локального использования) или AWS S3 аккаунт
+- Docker и Docker Compose (для использования Docker)
+- Postman или любой HTTP клиент для тестирования API
+- Go 1.23+ (для локальной разработки)
 
-## Установка
+## Быстрый старт
 
-1. Клонируйте репозиторий или перейдите в директорию проекта:
+### Запуск с Docker Compose (рекомендуется)
+
 ```bash
-cd minn
+# Запуск MinIO и HTTP API сервера
+docker-compose up --build
 ```
 
+После запуска:
+- **HTTP API**: http://localhost:8080
+- **MinIO Web UI**: http://localhost:9001 (логин: `minioadmin`, пароль: `minioadmin`)
+- **MinIO API**: http://localhost:9000
+
+### Локальный запуск
+
+1. Убедитесь, что MinIO запущен локально или в Docker
 2. Установите зависимости:
 ```bash
 go mod download
 ```
 
-## Настройка
-
-### Для MinIO (локальный S3-сервер)
-
-1. Установите и запустите MinIO:
-```bash
-# Установка MinIO (macOS)
-brew install minio/stable/minio
-
-# Запуск MinIO
-minio server ~/minio-data
-```
-
-MinIO будет доступен по адресу `http://localhost:9000` (веб-интерфейс) и `localhost:9000` (API).
-
-По умолчанию используются учетные данные:
-- Access Key: `minioadmin`
-- Secret Key: `minioadmin`
-
-2. Запустите программу:
+3. Запустите сервер:
 ```bash
 go run main.go
 ```
 
-### Для AWS S3
+## API Документация
 
-Установите переменные окружения:
+### Health Check
+
+**GET** `/health`
+
+Проверка состояния сервера.
+
+**Ответ:**
+```json
+{
+  "status": "ok",
+  "service": "s3-uploader"
+}
+```
+
+### Загрузка файла
+
+**POST** `/upload`
+
+Загрузка файла в S3-бакет.
+
+**Параметры:**
+- `file` (multipart/form-data) - файл для загрузки
+
+**Поддерживаемые типы файлов:**
+- `.txt` - текстовые файлы
+- `.png` - изображения PNG
+- `.json` - JSON файлы
+
+**Успешный ответ (200):**
+```json
+{
+  "success": true,
+  "message": "Файл успешно загружен в MinIO",
+  "fileName": "example.txt",
+  "fileSize": 1024,
+  "fileType": "text/plain",
+  "objectKey": "example.txt"
+}
+```
+
+**Ошибка (400/500):**
+```json
+{
+  "success": false,
+  "message": "Описание ошибки"
+}
+```
+
+## Использование с Postman
+
+### Шаг 1: Запустите сервисы
+
+```bash
+docker-compose up -d
+```
+
+### Шаг 2: Настройте запрос в Postman
+
+1. Метод: **POST**
+2. URL: `http://localhost:8080/upload`
+3. Body: выберите **form-data**
+4. Добавьте ключ `file` типа **File**
+5. Выберите файл для загрузки (`.txt`, `.png` или `.json`)
+
+### Пример запроса в Postman
+
+```
+POST http://localhost:8080/upload
+Content-Type: multipart/form-data
+
+file: [выберите файл]
+```
+
+### Шаг 3: Проверка результата
+
+После успешной загрузки файл будет доступен в MinIO:
+1. Откройте http://localhost:9001
+2. Войдите с учетными данными: `minioadmin` / `minioadmin`
+3. Откройте бакет `my-bucket`
+4. Найдите загруженный файл
+
+## Примеры загрузки файлов
+
+### Пример 1: Загрузка текстового файла
+
+Создайте файл `test.txt`:
+```
+Привет, мир!
+Это тестовый файл.
+```
+
+Загрузите через Postman:
+- URL: `POST http://localhost:8080/upload`
+- Body → form-data → `file`: выберите `test.txt`
+
+### Пример 2: Загрузка JSON файла
+
+Создайте файл `data.json`:
+```json
+{
+  "name": "Тест",
+  "value": 123
+}
+```
+
+Загрузите через Postman аналогично примеру 1.
+
+### Пример 3: Загрузка PNG изображения
+
+Загрузите любое PNG изображение через Postman.
+
+## Конфигурация
+
+### Переменные окружения
+
+```bash
+S3_ENDPOINT=minio:9000          # MinIO endpoint (по умолчанию: minio:9000)
+S3_ACCESS_KEY=minioadmin        # Access key (по умолчанию: minioadmin)
+S3_SECRET_KEY=minioadmin        # Secret key (по умолчанию: minioadmin)
+S3_USE_SSL=false                # Использовать SSL (по умолчанию: false)
+```
+
+### Для AWS S3
 
 ```bash
 export S3_ENDPOINT="s3.amazonaws.com"
@@ -63,87 +177,51 @@ export S3_SECRET_KEY="your-secret-key"
 export S3_USE_SSL="true"
 ```
 
-Затем запустите:
-```bash
-go run main.go
-```
-
-### Кастомная конфигурация
-
-Вы можете настроить подключение через переменные окружения:
-
-```bash
-export S3_ENDPOINT="your-endpoint"          # По умолчанию: localhost:9000
-export S3_ACCESS_KEY="your-access-key"      # По умолчанию: minioadmin
-export S3_SECRET_KEY="your-secret-key"      # По умолчанию: minioadmin
-export S3_USE_SSL="true"                    # По умолчанию: false
-```
-
-## Использование
-
-1. Убедитесь, что у вас есть файлы для загрузки:
-   - `sample.txt` - текстовый файл (уже включен)
-   - `sample.json` - JSON файл (уже включен)
-   - `sample.png` - PNG файл (будет автоматически создан, если отсутствует)
-
-2. Запустите программу:
-```bash
-go run main.go
-```
-
-Программа выполнит следующие действия:
-1. Создаст подключение к S3 (MinIO или AWS)
-2. Создаст бакет `my-bucket` (если его еще нет)
-3. Загрузит все три типа файлов в бакет
-
-## Сборка
-
-Создать исполняемый файл:
-
-```bash
-go build -o s3uploader main.go
-```
-
-Запустить:
-```bash
-./s3uploader
-```
-
 ## Структура проекта
 
 ```
 minn/
-├── main.go          # Основная программа
-├── sample.txt       # Пример текстового файла
-├── sample.json      # Пример JSON файла
-├── sample.png       # PNG файл (создается автоматически)
-├── go.mod           # Зависимости Go
-└── README.md        # Документация
+├── main.go              # HTTP API сервер
+├── Dockerfile           # Docker образ приложения
+├── docker-compose.yml   # Docker Compose конфигурация
+├── .dockerignore        # Исключения для Docker
+├── go.mod               # Зависимости Go
+└── README.md            # Документация
 ```
 
-## Примеры использования
+## Полезные команды
 
-### Минимальный запуск (MinIO по умолчанию)
+### Запуск сервисов
 ```bash
-go run main.go
+docker-compose up -d
 ```
 
-### С кастомными параметрами MinIO
+### Просмотр логов
 ```bash
-export S3_ENDPOINT="192.168.1.100:9000"
-export S3_ACCESS_KEY="myaccesskey"
-export S3_SECRET_KEY="mysecretkey"
-go run main.go
+docker-compose logs -f s3uploader
 ```
 
-### С AWS S3
+### Остановка сервисов
 ```bash
-export S3_ENDPOINT="s3.amazonaws.com"
-export S3_ACCESS_KEY="AKIAIOSFODNN7EXAMPLE"
-export S3_SECRET_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-export S3_USE_SSL="true"
-go run main.go
+docker-compose down
 ```
+
+### Остановка и удаление данных
+```bash
+docker-compose down -v
+```
+
+### Пересборка после изменений
+```bash
+docker-compose build
+docker-compose up -d
+```
+
+## Ограничения
+
+- Максимальный размер файла: 32 MB
+- Поддерживаются только файлы с расширениями: `.txt`, `.png`, `.json`
+- Имя файла в S3 совпадает с оригинальным именем файла
 
 ## Зависимости
 
@@ -152,4 +230,4 @@ go run main.go
 ## Лицензия
 
 MIT
-
+# minn
